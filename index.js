@@ -1,9 +1,13 @@
 const express = require("express");
 const app = express();
+const cors = require("cors");
 require("dotenv").config();
 const { MongoClient, ServerApiVersion } = require("mongodb");
 const port = process.env.port || 3000;
 
+// middleWare
+app.use(cors());
+app.use(express.json());
 const uri = `mongodb+srv://${process.env.PET_USER}:${process.env.PET_PASS}@cluster1.ofkx5hm.mongodb.net/?appName=Cluster1`;
 
 const client = new MongoClient(uri, {
@@ -21,6 +25,20 @@ app.get("/", (req, res) => {
 async function run() {
   try {
     await client.connect();
+    const db = client.db("PetMart");
+    const PetMartListingCollections = db.collection("petmartlist");
+
+    app.post("/petListdata", async (req, res) => {
+      const data = req.body;
+      const result = await PetMartListingCollections.insertOne(data);
+      res.send(result);
+    });
+
+    app.get("/petListdata", async (req, res) => {
+      const cursor = await PetMartListingCollections.find();
+      const result = await cursor.toArray();
+      res.send(result);
+    });
 
     await client.db("admin").command({ ping: 1 });
     console.log(
