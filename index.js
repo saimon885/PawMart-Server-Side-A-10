@@ -27,6 +27,7 @@ async function run() {
     await client.connect();
     const db = client.db("PetMart");
     const PetMartListingCollections = db.collection("petmartlist");
+    const OrderCollections = db.collection("Order");
 
     app.post("/petListdata", async (req, res) => {
       const data = req.body;
@@ -49,14 +50,36 @@ async function run() {
       const result = await PetMartListingCollections.find(query).toArray();
       res.send(result);
     });
+    // my orders
+    app.get("/mylistdata", async (req, res) => {
+      const email = req.query.email;
+      const quiry = {};
+      if (email) {
+        quiry.email = email;
+      }
+      const cursor = PetMartListingCollections.find(quiry);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
 
     // search
     app.get("/search", async (req, res) => {
       const search_text = req.query.search;
       const result = await PetMartListingCollections.find({
-        category: { $regex: search_text, $options: "i" }
+        category: { $regex: search_text, $options: "i" },
       }).toArray();
       res.send(result);
+    });
+
+    // Order then data
+    app.post("/orders", async (req, res) => {
+      const data = req.body;
+      const result = await OrderCollections.insertOne(data);
+      res.send(result);
+    });
+    app.get("/orders", async (req, res) => {
+      const cursor = await OrderCollections.find().toArray();
+      res.send(cursor);
     });
 
     await client.db("admin").command({ ping: 1 });
