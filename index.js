@@ -50,7 +50,7 @@ async function run() {
       const result = await PetMartListingCollections.find(query).toArray();
       res.send(result);
     });
-    // my orders
+    // my Listed Data
     app.get("/mylistdata", async (req, res) => {
       const email = req.query.email;
       const quiry = {};
@@ -59,6 +59,40 @@ async function run() {
       }
       const cursor = PetMartListingCollections.find(quiry);
       const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    app.delete("/mylistdata/:id", async (req, res) => {
+      const id = req.params.id;
+      const quiry = { _id: new ObjectId(id) };
+      const result = await PetMartListingCollections.deleteOne(quiry);
+      console.log(result);
+      res.send(result);
+    });
+
+    // update my list data
+    app.patch("/mylistdata/:id", async (req, res) => {
+      const id = req.params.id;
+      const updateUser = req.body;
+      const quiry = { _id: new ObjectId(id) };
+      const Update = {
+        $set: {
+          name: updateUser.name,
+          category: updateUser.category,
+          price: updateUser.price,
+          location: updateUser.location,
+          description: updateUser.description,
+          image: updateUser.image,
+          email: updateUser.email,
+          date: updateUser.date,
+        },
+      };
+      const options = {};
+      const result = await PetMartListingCollections.updateOne(
+        quiry,
+        Update,
+        options
+      );
       res.send(result);
     });
 
