@@ -100,7 +100,7 @@ async function run() {
     app.get("/search", async (req, res) => {
       const search_text = req.query.search;
       const result = await PetMartListingCollections.find({
-        category: { $regex: search_text, $options: "i" },
+        name: { $regex: search_text, $options: "i" },
       }).toArray();
       res.send(result);
     });
@@ -114,6 +114,17 @@ async function run() {
     app.get("/orders", async (req, res) => {
       const cursor = await OrderCollections.find().toArray();
       res.send(cursor);
+    });
+    app.get("/myorders", async (req, res) => {
+      const email = req.query.email;
+      const quiry = {};
+      if (email) {
+        quiry.email = email;
+      }
+      const result = await OrderCollections.find(quiry)
+        .sort({ date: 1 })
+        .toArray();
+      res.send(result);
     });
 
     await client.db("admin").command({ ping: 1 });
