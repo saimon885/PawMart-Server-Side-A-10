@@ -1,9 +1,45 @@
 const express = require("express");
 const app = express();
 const cors = require("cors");
+const admin = require("firebase-admin");
 require("dotenv").config();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const port = process.env.port || 3000;
+
+// access token
+
+const serviceAccount = require("./PetBond-Secret-Token.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+const logger = (req, res, next) => {
+  console.log("Logging information!");
+  next();
+};
+
+const verifyFirebaseToken = async (req, res, next) => {
+  console.log("in the verify MidleWare", req.headers.authorization);
+  //
+  if (!req.headers.authorization) {
+    // do not allow to go
+    return res.status(401).send({ messege: "Unauthorized Access!" });
+  }
+  const token = req.headers.authorization.split(" ")[1];
+  if (!token) {
+    return res.status(401).send({ messege: "unauthorized Access!" });
+  }
+
+  try {
+    const UserInfo = await admin.auth().verifyIdToken(token);
+    // hacker authorized
+    req.token_email = UserInfo.email;
+    console.log("After Token Validation", UserInfo);
+    next();
+  } catch {
+    return res.status(401).send({ messege: "unauthorized Access!" });
+  }
+};
 
 // middleWare
 app.use(cors());
@@ -51,7 +87,7 @@ async function run() {
       res.send(result);
     });
     // my Listed Data
-    app.get("/mylistdata", async (req, res) => {
+    app.get("/mylistdata", logger, verifyFirebaseToken, async (req, res) => {
       const email = req.query.email;
       const quiry = {};
       if (email) {
@@ -111,19 +147,30 @@ async function run() {
       const result = await OrderCollections.insertOne(data);
       res.send(result);
     });
-    app.get("/orders", async (req, res) => {
+    app.get("/orders", logger,verifyFirebaseToken, async (req, res) => {
       const cursor = await OrderCollections.find().toArray();
       res.send(cursor);
     });
-    app.get("/myorders", async (req, res) => {
+    app.get("/myorders", logger, verifyFirebaseToken, async (req, res) => {
       const email = req.query.email;
       const quiry = {};
       if (email) {
+        if (email !== req.token_email) {
+          return res.status(403).send({ messeger: "Forbidden Access" });
+        }
         quiry.email = email;
       }
       const result = await OrderCollections.find(quiry)
         .sort({ date: 1 })
         .toArray();
+      res.send(result);
+    });
+
+    app.delete("/myorders/:id", async (req, res) => {
+      const id = req.params.id;
+      const quiry = { _id: new ObjectId(id) };
+      const result = await OrderCollections.deleteOne(quiry);
+      // console.log(result);
       res.send(result);
     });
 
