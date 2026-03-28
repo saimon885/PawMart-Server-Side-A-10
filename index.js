@@ -78,6 +78,7 @@ async function run() {
     const OrderCollections = db.collection("Order");
     const paymentCollections = db.collection("payments");
     const userCollection = db.collection("users");
+    const feedbackCollections = db.collection("feedbacks");
     // userlist
     app.post("/users", async (req, res) => {
       const data = req.body;
@@ -134,10 +135,40 @@ async function run() {
     });
 
     app.get("/petListdata", async (req, res) => {
+      try {
+        const { limit, skip, category = null, search = "" } = req.query;
+
+        let query = {};
+        if (category) {
+          query.category = category;
+        }
+
+        if (search) {
+          query.name = { $regex: search, $options: "i" };
+        }
+
+        const cursor = PetMartListingCollections.find(query)
+          .project({ description: 0 })
+          .skip(Number(skip) || 0)
+          .limit(Number(limit) || 10);
+
+        const result = await cursor.toArray();
+        const count = await PetMartListingCollections.countDocuments(query);
+
+        res.send({ data: result, total: count });
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Server Error" });
+      }
+    });
+    app.get("/homepetListdata", async (req, res) => {
       const cursor = await PetMartListingCollections.find()
-        .sort({ date: -1 })
-        .project({ description: 0 });
-      // .limit(6)
+        .sort({ createdAt: -1 })
+
+        .project({
+          description: 0,
+        });
+
       const result = await cursor.toArray();
       res.send(result);
     });
@@ -419,6 +450,25 @@ async function run() {
       const cursor = await OrderCollections.find().toArray();
       res.send(cursor);
     });
+    app.get("/orders/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await OrderCollections.find(query).toArray();
+      res.send(result);
+    });
+    app.patch("/orders/:id", async (req, res) => {
+      const id = req.params.id;
+      const update = req.body;
+      const query = { _id: new ObjectId(id) };
+      const updatedoc = {
+        $set: {
+          deliveryStatus: update.deliveryStatus,
+        },
+      };
+      const result = await OrderCollections.updateOne(query, updatedoc);
+      res.send(result);
+    });
+
     app.get("/myorders", logger, verifyFirebaseToken, async (req, res) => {
       const email = req.query.email;
       const quiry = {};
@@ -434,11 +484,36 @@ async function run() {
       res.send(result);
     });
 
+    app.patch("/myorders/:id", async (req, res) => {
+      const id = req.params.id;
+      const update = req.body;
+      const query = { _id: new ObjectId(id) };
+
+      const updatedoc = {
+        $set: {
+          deliveryStatus: update.deliveryStatus,
+          paymentStatus: update.paymentStatus,
+        },
+      };
+      const result = await OrderCollections.updateOne(query, updatedoc);
+      res.send(result);
+    });
     app.delete("/myorders/:id", async (req, res) => {
       const id = req.params.id;
       const quiry = { _id: new ObjectId(id) };
       const result = await OrderCollections.deleteOne(quiry);
       // console.log(result);
+      res.send(result);
+    });
+
+    app.post("/feedbacks", async (req, res) => {
+      const data = req.body;
+      const result = await feedbackCollections.insertOne(data);
+      res.send(result);
+    });
+
+    app.get("/feedbacks", async (req, res) => {
+      const result = await feedbackCollections.find().toArray();
       res.send(result);
     });
 
