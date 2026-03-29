@@ -30,6 +30,16 @@ const logger = (req, res, next) => {
   next();
 };
 
+// const verifyAdmin = async (req, res, next) => {
+//   const email = req.token_email;
+//   const query = { email };
+//   const user = await userCollection.findOne(query);
+//   if (user?.role !== "admin") {
+//     return res.status(403).send({ messege: "Forbidden Access" });
+//   }
+//   next();
+// };
+
 const verifyFirebaseToken = async (req, res, next) => {
   // console.log("in the verify MidleWare", req.headers.authorization);
   //
@@ -90,6 +100,58 @@ async function run() {
         return res.send({ messege: "user already exist" });
       }
       const result = await userCollection.insertOne(data);
+      res.send(result);
+    });
+    app.get("/satisfyedUser", async (req, res) => {
+      const pipeline = [
+        {
+          $group: {
+            _id: null,
+            count: { $sum: 1 },
+          },
+        },
+      ];
+
+      const result = await feedbackCollections.aggregate(pipeline).toArray();
+
+      res.send(result);
+    });
+    app.get("/totalUserList", async (req, res) => {
+      const pipeline = [
+        {
+          $match: {
+            role: "user",
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            count: { $sum: 1 },
+          },
+        },
+      ];
+
+      const result = await userCollection.aggregate(pipeline).toArray();
+
+      res.send(result);
+    });
+    app.get("/totalAdmin", async (req, res) => {
+      const pipeline = [
+        {
+          $match: {
+            role: "admin",
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            count: { $sum: 1 },
+          },
+        },
+      ];
+
+      const result = await userCollection.aggregate(pipeline).toArray();
+
       res.send(result);
     });
     app.get("/users", async (req, res) => {
@@ -276,7 +338,7 @@ async function run() {
       }
     });
 
-    app.get("/payments", async (req, res) => {
+    app.get("/payments", logger, verifyFirebaseToken, async (req, res) => {
       const email = req.query.email;
       const quiry = {};
       if (email) {
@@ -314,6 +376,25 @@ async function run() {
         {
           $match: {
             paymentStatus: "pending",
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            count: { $sum: 1 },
+          },
+        },
+      ];
+
+      const result = await OrderCollections.aggregate(pipeline).toArray();
+
+      res.send(result);
+    });
+    app.get("/CashOnDelevery", async (req, res) => {
+      const pipeline = [
+        {
+          $match: {
+            paymentStatus: "COD",
           },
         },
         {
@@ -386,6 +467,12 @@ async function run() {
       const email = req.query.email;
       const quiry = {};
       if (email) {
+        if (email !== req.token_email) {
+          return res.status(403).send({ messeger: "Forbidden Access" });
+        }
+        quiry.email = email;
+      }
+      if (email) {
         quiry.email = email;
       }
       const cursor = PetMartListingCollections.find(quiry).sort({
@@ -446,7 +533,7 @@ async function run() {
       const result = await OrderCollections.insertOne(data);
       res.send(result);
     });
-    app.get("/orders", async (req, res) => {
+    app.get("/orders", logger, verifyFirebaseToken, async (req, res) => {
       const cursor = await OrderCollections.find().toArray();
       res.send(cursor);
     });
